@@ -4,91 +4,91 @@ from difflib import get_close_matches
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 
-def normalize_column_names(df):
+def normalizar_nomes_colunas(df):
     df.columns = [unidecode.unidecode(col.upper().strip()) for col in df.columns]
     return df
 
-def find_similar_city(city, city_list, threshold=0.8):
-    matches = get_close_matches(city, city_list, n=1, cutoff=threshold)
-    return matches[0] if matches else None
+def encontrar_cidade_semelhante(cidade, lista_cidades, limiar=0.8):
+    correspondencias = get_close_matches(cidade, lista_cidades, n=1, cutoff=limiar)
+    return correspondencias[0] if correspondencias else None
 
-def merge_excel_files(file1, file2, output_file):
+def combinar_arquivos_excel(arquivo1, arquivo2, arquivo_saida):
     # Leitura dos arquivos
-    df1 = pd.read_excel(file1)
-    df2 = pd.read_excel(file2)
+    df1 = pd.read_excel(arquivo1)
+    df2 = pd.read_excel(arquivo2)
     
     # Normalização dos nomes das colunas
-    df1 = normalize_column_names(df1)
-    df2 = normalize_column_names(df2)
+    df1 = normalizar_nomes_colunas(df1)
+    df2 = normalizar_nomes_colunas(df2)
     
     # Normalização dos nomes das cidades
     df1['MUNICIPIO'] = df1['MUNICIPIO'].apply(lambda x: unidecode.unidecode(x.upper().strip()))
     df2['MUNICIPIO'] = df2['MUNICIPIO'].apply(lambda x: unidecode.unidecode(x.upper().strip()))
     
     # Encontrar cidades semelhantes e comuns
-    df1['MUNICIPIO_FILE2'] = df1['MUNICIPIO'].apply(lambda x: find_similar_city(x, df2['MUNICIPIO'].tolist()))
-    df1 = df1.dropna(subset=['MUNICIPIO_FILE2'])
+    df1['MUNICIPIO_ARQUIVO2'] = df1['MUNICIPIO'].apply(lambda x: encontrar_cidade_semelhante(x, df2['MUNICIPIO'].tolist()))
+    df1 = df1.dropna(subset=['MUNICIPIO_ARQUIVO2'])
     
-    df2_common = df2[df2['MUNICIPIO'].isin(df1['MUNICIPIO_FILE2'])]
+    df2_comum = df2[df2['MUNICIPIO'].isin(df1['MUNICIPIO_ARQUIVO2'])]
     
     # Combinar os dataframes
-    merged_df = pd.merge(df1, df2_common, left_on='MUNICIPIO_FILE2', right_on='MUNICIPIO', suffixes=('_FILE1', '_FILE2'))
+    df_combinado = pd.merge(df1, df2_comum, left_on='MUNICIPIO_ARQUIVO2', right_on='MUNICIPIO', suffixes=('_ARQUIVO1', '_ARQUIVO2'))
     
     # Reordenar colunas para colocar as semelhantes lado a lado
-    df1_columns = [col for col in merged_df.columns if '_FILE1' in col]
-    df2_columns = [col for col in merged_df.columns if '_FILE2' in col]
+    colunas_arquivo1 = [col for col in df_combinado.columns if '_ARQUIVO1' in col]
+    colunas_arquivo2 = [col for col in df_combinado.columns if '_ARQUIVO2' in col]
     
-    ordered_columns = []
-    for col in df1_columns:
-        col_base = col.replace('_FILE1', '')
-        if f'{col_base}_FILE2' in df2_columns:
-            ordered_columns.append(col)
-            ordered_columns.append(f'{col_base}_FILE2')
+    colunas_ordenadas = []
+    for col in colunas_arquivo1:
+        base_coluna = col.replace('_ARQUIVO1', '')
+        if f'{base_coluna}_ARQUIVO2' in colunas_arquivo2:
+            colunas_ordenadas.append(col)
+            colunas_ordenadas.append(f'{base_coluna}_ARQUIVO2')
     
     # Adicionar colunas que não têm correspondência
-    remaining_columns = [col for col in merged_df.columns if col not in ordered_columns]
-    ordered_columns.extend(remaining_columns)
+    colunas_restantes = [col for col in df_combinado.columns if col not in colunas_ordenadas]
+    colunas_ordenadas.extend(colunas_restantes)
     
-    merged_df = merged_df[ordered_columns]
+    df_combinado = df_combinado[colunas_ordenadas]
     
     # Salvar o resultado em um arquivo Excel
-    merged_df.to_excel(output_file, index=False)
+    df_combinado.to_excel(arquivo_saida, index=False)
     
     # Aplicar a formatação condicional para células diferentes
-    highlight_differences(output_file)
+    destacar_diferencas(arquivo_saida)
     
-    return merged_df
+    return df_combinado
 
-def highlight_differences(output_file):
+def destacar_diferencas(arquivo_saida):
     # Carregar o arquivo Excel
-    wb = load_workbook(output_file)
+    wb = load_workbook(arquivo_saida)
     ws = wb.active
     
     # Definir o preenchimento para as células com diferenças
-    yellow_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+    preenchimento_amarelo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
     
     # Obter o número de colunas e linhas
-    col_count = ws.max_column
-    row_count = ws.max_row
+    numero_colunas = ws.max_column
+    numero_linhas = ws.max_row
     
     # Iterar sobre as colunas e comparar os valores
-    for col in range(1, col_count, 2):  # Considera pares de colunas
-        col_name1 = ws.cell(row=1, column=col).value
-        col_name2 = ws.cell(row=1, column=col + 1).value
+    for col in range(1, numero_colunas, 2):  # Considera pares de colunas
+        nome_coluna1 = ws.cell(row=1, column=col).value
+        nome_coluna2 = ws.cell(row=1, column=col + 1).value
 
-        # Verificar se os nomes das colunas são idênticos (removendo os sufixos "_FILE1" e "_FILE2")
-        if col_name1 and col_name2 and col_name1.split('_FILE')[0] == col_name2.split('_FILE')[0]:
-            for row in range(2, row_count + 1):
-                cell1 = ws.cell(row=row, column=col)
-                cell2 = ws.cell(row=row, column=col + 1)
+        # Verificar se os nomes das colunas são idênticos (removendo os sufixos "_ARQUIVO1" e "_ARQUIVO2")
+        if nome_coluna1 and nome_coluna2 and nome_coluna1.split('_ARQUIVO')[0] == nome_coluna2.split('_ARQUIVO')[0]:
+            for linha in range(2, numero_linhas + 1):
+                celula1 = ws.cell(row=linha, column=col)
+                celula2 = ws.cell(row=linha, column=col + 1)
                 
                 # Comparar valores e aplicar formatação se diferentes
-                if cell1.value != cell2.value:
-                    cell1.fill = yellow_fill
-                    cell2.fill = yellow_fill
+                if celula1.value != celula2.value:
+                    celula1.fill = preenchimento_amarelo
+                    celula2.fill = preenchimento_amarelo
     
     # Salvar o arquivo com as diferenças destacadas
-    wb.save(output_file)
+    wb.save(arquivo_saida)
 
 # Flask para a interface web
 from flask import Flask, request, render_template, send_file
@@ -98,21 +98,21 @@ app = Flask(__name__)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        file1 = request.files['file1']
-        file2 = request.files['file2']
-        output_file = "merged_output.xlsx"
+        arquivo1 = request.files['arquivo1']
+        arquivo2 = request.files['arquivo2']
+        arquivo_saida = "saida_combinada.xlsx"
         
         # Salvar os arquivos no servidor
-        file1_path = f"./{file1.filename}"
-        file2_path = f"./{file2.filename}"
-        file1.save(file1_path)
-        file2.save(file2_path)
+        caminho_arquivo1 = f"./{arquivo1.filename}"
+        caminho_arquivo2 = f"./{arquivo2.filename}"
+        arquivo1.save(caminho_arquivo1)
+        arquivo2.save(caminho_arquivo2)
         
-        # Fazer a fusão dos arquivos
-        merge_excel_files(file1_path, file2_path, output_file)
+        # Fazer a combinação dos arquivos
+        combinar_arquivos_excel(caminho_arquivo1, caminho_arquivo2, arquivo_saida)
         
         # Retornar o arquivo Excel resultante para download
-        return send_file(output_file, as_attachment=True)
+        return send_file(arquivo_saida, as_attachment=True)
     
     return render_template('index.html')
 
